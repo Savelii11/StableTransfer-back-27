@@ -1,0 +1,99 @@
+services:
+  stable-transfer-api:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - ./app/:/usr/src/app/
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+    ports:
+      - 8000:8000
+    env_file:
+      - ./.env.dev
+    depends_on:
+      - stable-transfer-db
+      - redis
+  
+  nginx:
+    build: ./nginx-dev
+    restart: always
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+    ports:
+      - 1337:80
+    depends_on:
+      - stable-transfer-api
+    links:
+      - redis
+    
+  stable-transfer-db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    restart: always
+    env_file:
+      - ./.env.dev
+    ports:
+      - "5432:5432"
+    links:
+      - redis
+
+  redis:
+    image: redis:7.2.5-alpine
+    hostname: redis
+    command: redis-server --save "" --appendonly no --maxmemory 1gb  # Disable RDB snapshots and set max memory
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_MAXMEMORY=1gb
+  
+  worker:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    hostname: worker
+    entrypoint: celery
+    command: -A celery_app.app worker --loglevel=info
+    volumes:
+      - ./app/:/usr/src/app/
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+    links:
+      - redis
+    depends_on:
+      - redis
+      - stable-transfer-db
+      - stable-transfer-api
+    env_file:
+      - ./.env.dev
+    environment:
+      - CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=True
+  
+  celery-beat:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    hostname: celery-beat
+    entrypoint: celery
+    command: -A celery_app.app beat --loglevel=info
+    volumes:
+      - ./app/:/usr/src/app/
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+    depends_on:
+      - redis
+      - stable-transfer-db
+      - stable-transfer-api
+    env_file:
+      - ./.env.dev
+    environment:
+      - CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=True
+  
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
