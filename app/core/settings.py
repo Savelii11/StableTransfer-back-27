@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     # apps
     "content",
     "user_auth",
+    "payments",
 ]
 
 MIDDLEWARE = [
