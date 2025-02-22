@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "corsheaders",
     # apps
     "content",
+    "user_auth",
 ]
 
 MIDDLEWARE = [
@@ -159,9 +160,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # AUTH_USER_MODEL = "auth_service.CustomUser"
 
 AUTHENTICATION_BACKENDS = [
-    # "auth_service.backends.CustomAuthBackend",
+    "user_auth.backends.CustomAuthBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+AUTH_USER_MODEL = "user_auth.CustomUser"
 
 REST_FRAMEWORK = {
     # "EXCEPTION_HANDLER": "auth_service.exceptions.status_code_handler",
