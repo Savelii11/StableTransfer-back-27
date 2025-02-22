@@ -15,7 +15,7 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
-from .serializers import CustomUserSerializer
+from .serializers import CustomUserSerializer, GetCustomUserSerializer
 
 
 
@@ -69,3 +69,42 @@ class LoginAPIView(APIView):
         )
 
         return response
+
+class VerifyRefreshTokenAPIView(APIView):
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        refresh_token = request.data.get("refresh_token")
+
+        if not refresh_token:
+            return Response(
+                {"message": "Refresh token is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.verify()
+
+            return Response(
+                {"message": "Refresh token is valid."}, status=status.HTTP_200_OK
+            )
+
+        except TokenError:
+            # Delete all expired refresh tokens
+            now = timezone.now()
+            OutstandingToken.objects.filter(expires_at__lte=now).delete()
+
+            return Response(
+                {"message": "Refresh token is invalid and has been revoked."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+
+class UserAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: HttpRequest, user_id, *args, **kwargs) -> HttpResponse:
+
+        custom_user = get_object_or_404(CustomUser, pk=user_id)
+        return Response(GetCustomUserSerializer(custom_user).data, status=status.HTTP_200_OK)

@@ -24,7 +24,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ["id", "fullname", "email", "wallet_address", "password", "is_checker"]
+        fields = ["id", "fullname", "email", "wallet_address", "password", "is_checker", "description"]
         extra_kwargs = {"password": {"write_only": True}}
 
 class LoginSerializer(serializers.ModelSerializer):
@@ -34,3 +34,19 @@ class LoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ["email", "password"]
+
+class GetCustomUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ["fullname","wallet_address", "email", "description"]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        # If user is a checker, remove email and phone_number
+        if instance.is_checker:
+            representation.pop("email", None)
+            representation.pop("fullname", None)
+
+
+        return representation
