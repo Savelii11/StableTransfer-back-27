@@ -16,7 +16,7 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Contract, CustomUser
-from .serializers import ContractSerializer
+from .serializers import ContractSerializer, GetContractSerializer
 
 
 class ContractCreateView(APIView):
@@ -141,3 +141,20 @@ class ContractRaiseDispute(APIView):
                 "transfer_status": transfer.status,
             }
             return Response(response_data, status=status.HTTP_200_OK)
+
+
+class GetContractsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        user = request.user
+        contracts = Contract.objects.filter(contractor=user)
+
+        if not contracts.exists():
+            return Response(
+                {"message": "No contracts found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = GetContractSerializer(contracts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

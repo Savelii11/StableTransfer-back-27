@@ -16,4 +16,5 @@ urlpatterns = [
         views.ContractRaiseDispute.as_view(),
         name="contract-raise-dispute",
     ),
+    path("contracts/", views.GetContractsAPIView.as_view(), name="get-contract"),
 ]
