@@ -23,4 +23,4 @@ class Contract(models.Model):
     mediator = models.ForeignKey(CustomUser, related_name="mediator", blank=True, on_delete=models.SET_NULL,
                                    null=True)
     completed = models.BooleanField(default=False)
-    transaction_hash = models.CharField(max_length=256, null=False )
+    #transaction_hash = models.CharField(max_length=256, null=False )

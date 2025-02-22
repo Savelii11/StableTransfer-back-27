@@ -18,6 +18,8 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Contract
 from .serializers import ContractSerializer
+from payments.models import Transfer
+from payments.usdc_transfer import USDCTransfer
 
 
 class ContractCreateView(APIView):
@@ -25,13 +27,25 @@ class ContractCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """Create a contract, ensuring only non-checkers can create."""
+
         if request.user.is_checker:
             raise exceptions.PermissionDenied("Checkers are not allowed to create contracts.")
+        data = request.data.copy()
+        trans_hash = data.pop("transaction_hash", None)
 
-        serializer = ContractSerializer(data=request.data, context={"request": request})
+        usdc_transfer = USDCTransfer()
+        # Create the contract (without transaction_hash)
+        tx_data = usdc_transfer.get_tx_data(trans_hash)
+        transfer = usdc_transfer.get_transferred_usdc(tx_data)
+
+        if transfer.is_receiver(tx_data, usdc_transfer.STABLE_TRANSFER_ADDRESS_SEPOLIA) and transfer.is_usdc_amount_correct(transfer, float(data["reward"])):
+            serializer = ContractSerializer(data=data, context={"request": request})
         if serializer.is_valid():
             contract = serializer.save(contractor=request.user)  # Assign contractor automatically
+
+            if trans_hash:
+                Transfer.objects.create(sender=request.user, contract=contract, tx_hash=trans_hash, status="Created")
+
             return Response(ContractSerializer(contract).data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

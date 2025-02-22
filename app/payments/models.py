@@ -24,3 +24,4 @@ class Transfer(models.Model):
     mediator = models.ForeignKey(
         CustomUser, null=True, blank=True, on_delete=models.CASCADE
     )
+
