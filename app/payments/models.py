@@ -1,3 +1,4 @@
+from content.models import Contract
 from django.db import models
 from user_auth.models import CustomUser
 
@@ -15,8 +16,10 @@ class Transfer(models.Model):
     receiver = models.ForeignKey(
         CustomUser, null=False, blank=False, on_delete=models.CASCADE
     )
-    # TODO
-    # contract = models.OneToOneField(Contract)
+
+    contract = models.OneToOneField(
+        Contract, null=False, blank=False, on_delete=models.CASCADE
+    )
     tx_hash = models.CharField(max_length=256, null=False, unique=True)
     status = models.CharField(
         choices=TRANSFER_STATUSES, max_length=256, blank=False, null=False
