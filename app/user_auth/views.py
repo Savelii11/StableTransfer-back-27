@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from typing import Any, Dict
-
+from .models import CustomUser
 from django.contrib.auth import authenticate, logout
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
@@ -19,6 +19,13 @@ from .serializers import CustomUserSerializer
 
 
 
+def generate_tokens_for_user(user: CustomUser) -> Dict[str, str]:
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access_token": str(refresh.access_token),
+        "refresh_token": str(refresh),
+    }
+
 class CustomUserSignUpAPIView(APIView):
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -29,3 +36,36 @@ class CustomUserSignUpAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LoginAPIView(APIView):
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        email = request.data["email"]
+        password = request.data["password"]
+
+        user = CustomUser.objects.filter(email=email).first()
+
+        if user is None:
+            raise exceptions.AuthenticationFailed("Invalid credentials")
+        elif not user.check_password(password):
+            raise exceptions.AuthenticationFailed("Invalid credentials")
+
+        try:
+            CustomUser.objects.get(email=email)
+        except CustomUser.DoesNotExist:
+            raise exceptions.AuthenticationFailed(
+                "You must complete your profile to log in."
+            )
+
+        user = authenticate(request, email=email, password=password)
+        tokens = generate_tokens_for_user(user)
+
+        user.is_active = True
+        user.save()
+
+        response = Response(
+            tokens,
+            status=status.HTTP_200_OK,
+        )
+
+        return response

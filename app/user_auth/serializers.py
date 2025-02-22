@@ -9,6 +9,8 @@ def validate_password(value: str) -> str:
         )
     return value
 
+
+
 class CustomUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
 
@@ -24,3 +26,11 @@ class CustomUserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ["id", "fullname", "email", "wallet_address", "password", "is_checker"]
         extra_kwargs = {"password": {"write_only": True}}
+
+class LoginSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ["email", "password"]
