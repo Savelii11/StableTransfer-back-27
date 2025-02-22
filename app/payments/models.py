@@ -11,19 +11,35 @@ class Transfer(models.Model):
         ("Cancelled", "Cancelled"),
     ]
     sender = models.ForeignKey(
-        CustomUser, null=False, blank=False, on_delete=models.CASCADE
+        CustomUser,
+        null=False,
+        blank=False,
+        on_delete=models.CASCADE,
+        related_name="sender",
     )
     receiver = models.ForeignKey(
-        CustomUser, null=False, blank=False, on_delete=models.CASCADE
+        CustomUser,
+        null=False,
+        blank=False,
+        on_delete=models.CASCADE,
+        related_name="receiver",
     )
 
     contract = models.OneToOneField(
-        Contract, null=False, blank=False, on_delete=models.CASCADE
+        Contract,
+        null=False,
+        blank=False,
+        on_delete=models.CASCADE,
+        related_name="contract",
     )
     tx_hash = models.CharField(max_length=256, null=False, unique=True)
     status = models.CharField(
         choices=TRANSFER_STATUSES, max_length=256, blank=False, null=False
     )
     mediator = models.ForeignKey(
-        CustomUser, null=True, blank=True, on_delete=models.CASCADE
+        CustomUser,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="mediator_receiver",
     )
