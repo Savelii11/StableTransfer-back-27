@@ -31,7 +31,3 @@ class ContractSerializer(serializers.ModelSerializer):
             )  # Assign contractor automatically
 
         return super().create(validated_data)
-
-
-class AcceptContractSerializer(serializers.ModelSerializer):
-    pass

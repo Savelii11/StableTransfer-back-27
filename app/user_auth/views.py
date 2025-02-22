@@ -1,9 +1,8 @@
-from django.shortcuts import render
 from typing import Any, Dict
-from .models import CustomUser
+
 from django.contrib.auth import authenticate, logout
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from rest_framework import exceptions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,9 +13,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-
+from .models import CustomUser
 from .serializers import CustomUserSerializer, GetCustomUserSerializer
-
 
 
 def generate_tokens_for_user(user: CustomUser) -> Dict[str, str]:
@@ -25,6 +23,7 @@ def generate_tokens_for_user(user: CustomUser) -> Dict[str, str]:
         "access_token": str(refresh.access_token),
         "refresh_token": str(refresh),
     }
+
 
 class CustomUserSignUpAPIView(APIView):
 
@@ -36,6 +35,7 @@ class CustomUserSignUpAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class LoginAPIView(APIView):
 
@@ -69,6 +69,7 @@ class LoginAPIView(APIView):
         )
 
         return response
+
 
 class VerifyRefreshTokenAPIView(APIView):
 
@@ -104,7 +105,8 @@ class UserAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def get(self, request: HttpRequest, user_id, *args, **kwargs) -> HttpResponse:
-
-        custom_user = get_object_or_404(CustomUser, pk=user_id)
-        return Response(GetCustomUserSerializer(custom_user).data, status=status.HTTP_200_OK)
+    def get(self, request: HttpRequest) -> HttpResponse:
+        custom_user = get_object_or_404(CustomUser, pk=request.user.id)
+        return Response(
+            GetCustomUserSerializer(custom_user).data, status=status.HTTP_200_OK
+        )
