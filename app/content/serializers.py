@@ -21,5 +21,17 @@ class ContractSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class AcceptContractSerializer(serializers.ModelSerializer):
-    pass
+class GetContractSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contract
+        fields = [
+            "id",
+            "title",
+            "reward",
+            "description",
+            "contractor",
+            "contractee",
+            "mediator",
+            "completed",
+            "transaction_hash",
+        ]

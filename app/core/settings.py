@@ -20,6 +20,7 @@ CSRF_TRUSTED_ORIGINS = ["http://localhost:1337"]  # use for local dev
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:5173",
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True

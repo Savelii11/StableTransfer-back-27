@@ -1,6 +1,9 @@
-from rest_framework import serializers
-from .models import CustomUser
 from typing import Any, Dict
+
+from rest_framework import serializers
+
+from .models import CustomUser
+
 
 def validate_password(value: str) -> str:
     if len(value) < 8:
@@ -8,7 +11,6 @@ def validate_password(value: str) -> str:
             "The password must be at least 8 characters long"
         )
     return value
-
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -24,8 +26,17 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ["id", "fullname", "email", "wallet_address", "password", "is_checker", "description"]
+        fields = [
+            "id",
+            "fullname",
+            "email",
+            "wallet_address",
+            "password",
+            "is_checker",
+            "description",
+        ]
         extra_kwargs = {"password": {"write_only": True}}
+
 
 class LoginSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
@@ -35,10 +46,11 @@ class LoginSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ["email", "password"]
 
+
 class GetCustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ["fullname","wallet_address", "email", "description"]
+        fields = ["fullname", "wallet_address", "email", "description"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -47,6 +59,5 @@ class GetCustomUserSerializer(serializers.ModelSerializer):
         if instance.is_checker:
             representation.pop("email", None)
             representation.pop("fullname", None)
-
 
         return representation
