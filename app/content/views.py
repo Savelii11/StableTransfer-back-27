@@ -87,60 +87,52 @@ class ContractRaiseDispute(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request: HttpRequest) -> HttpResponse:
+    def put(self, request: HttpRequest, contract_id: int) -> Response:
+        user = request.user
+        contract = get_object_or_404(Contract, id=contract_id)
 
-        def put(self, request, contract_id: int) -> Response:
-            user = request.user
-            contract = get_object_or_404(Contract, id=contract_id)
-
-            # Ensure that only the contractor can raise a dispute
-            if contract.contractor != user:
-                return Response(
-                    {"error": "Only the contractor can raise a dispute."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-            # Ensure the contract has a valid transfer associated
-            try:
-                transfer: Transfer = contract.transfer
-            except Transfer.DoesNotExist:
-                return Response(
-                    {"error": "No Transfer associated with this contract."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            # Get a list of all users who are not the contractor or contractee
-            potential_mediators = CustomUser.objects.exclude(
-                id__in=(
-                    [contract.contractor.id, contract.contractee.id]
-                    if contract.contractee
-                    else [contract.contractor.id]
-                )
+        # Ensure that only the contractor can raise a dispute
+        if contract.contractor != user:
+            return Response(
+                {"error": "Only the contractor can raise a dispute."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-            if not potential_mediators.exists():
-                return Response(
-                    {"error": "No available mediators."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # Ensure the contract has a valid transfer associated
+        try:
+            transfer: Transfer = contract.transfer
+        except Transfer.DoesNotExist:
+            return Response(
+                {"error": "No Transfer associated with this contract."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-            # Randomly select a mediator
-            mediator = random.choice(potential_mediators)
+        # Get a list of all users who are not the contractor or contractee
+        potential_mediators = CustomUser.objects.filter(is_checker=True)
 
-            # Assign the mediator to both the contract and transfer
-            contract.mediator = mediator
-            contract.save()
+        if not potential_mediators.exists():
+            return Response(
+                {"error": "No available mediators."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            transfer.mediator = mediator
-            transfer.status = "Disputed"
-            transfer.save()
+        # Randomly select a mediator
+        mediator = random.choice(potential_mediators)
 
-            response_data = {
-                "message": "Dispute raised successfully.",
-                "mediator": mediator.email,
-                "transfer_status": transfer.status,
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+        # Assign the mediator to both the contract and transfer
+        contract.mediator = mediator
+        contract.save()
+
+        transfer.mediator = mediator
+        transfer.status = "Disputed"
+        transfer.save()
+
+        response_data = {
+            "message": "Dispute raised successfully.",
+            "mediator": mediator.email,
+            "transfer_status": transfer.status,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class GetContractsAPIView(APIView):
