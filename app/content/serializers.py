@@ -8,20 +8,8 @@ from .models import Contract
 class ContractSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contract
-        fields = [
-            "id",
-            "title",
-            "reward",
-            "description",
-            "contractor",
-            "contractee",
-            "mediator",
-            "completed",
-            "transaction_hash",
-        ]
-        read_only_fields = [
-            "contractor"
-        ]  # Prevent users from setting the contractor manually
+        fields = ["id", "title", "reward", "description", "contractor", "contractee", "mediator", "completed"]
+        read_only_fields = ["contractor"]  # Prevent users from setting the contractor manually
 
     def create(self, validated_data):
         request = self.context.get("request")

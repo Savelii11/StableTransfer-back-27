@@ -19,8 +19,8 @@ class Transfer(models.Model):
     )
     receiver = models.ForeignKey(
         CustomUser,
-        null=False,
-        blank=False,
+        null=True,
+        blank=True,
         on_delete=models.CASCADE,
         related_name="receiver",
     )
@@ -43,3 +43,4 @@ class Transfer(models.Model):
         on_delete=models.CASCADE,
         related_name="mediator_receiver",
     )
+

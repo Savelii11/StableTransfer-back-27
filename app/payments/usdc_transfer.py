@@ -13,7 +13,7 @@ class USDCTransfer:
     SEPOLIA_ETHERSCAN_API_KEY = os.environ.get("SEPOLIA_ETHERSCAN_API_KEY")
     API_URL = os.environ.get("API_URL")
 
-    def get_tx_data(self, tx_hash: str, api_url: str) -> Dict:
+    def get_tx_data(self, tx_hash: str) -> Dict:
 
         # Get the transaction receipt, which includes logs
         params = {
@@ -23,7 +23,7 @@ class USDCTransfer:
             "apikey": self.SEPOLIA_ETHERSCAN_API_KEY,
         }
 
-        response = requests.get(api_url, params=params)
+        response = requests.get(self.API_URL, params=params)
         tx_data = response.json().get("result")
         return tx_data
 
@@ -68,7 +68,7 @@ usdc_transfer = USDCTransfer()
 # Use the correct transaction hash and API endpoint
 tx_hash = "0xe414909f4fb5ce964697112a49873b7d75d448bbbc2f5455ccc2b47fceed4201"
 
-tx_data = usdc_transfer.get_tx_data(tx_hash, usdc_transfer.API_URL)
+tx_data = usdc_transfer.get_tx_data(tx_hash)
 
 if not tx_data:
     print("Could not retrieve transaction receipt")

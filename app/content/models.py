@@ -36,4 +36,4 @@ class Contract(models.Model):
         null=True,
     )
     completed = models.BooleanField(default=False)
-    transaction_hash = models.CharField(max_length=256, null=False)
+    #transaction_hash = models.CharField(max_length=256, null=False )
