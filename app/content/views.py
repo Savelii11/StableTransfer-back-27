@@ -189,12 +189,6 @@ class GetContractsAPIView(APIView):
     def get(self, request: HttpRequest) -> HttpResponse:
         user = request.user
         contracts = Contract.objects.filter(contractor=user)
-
-        if not contracts.exists():
-            return Response(
-                {"message": "No contracts found."}, status=status.HTTP_404_NOT_FOUND
-            )
-
         serializer = GetContractSerializer(contracts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
