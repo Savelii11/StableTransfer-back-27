@@ -19,9 +19,12 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Contract, CustomUser
+from .permissions import IsContractorOrRead
 from .serializers import (
+    CompleteContractSerializer,
     ContractSerializer,
     GetContractSerializer,
+    GetFullContractSerializer,
     GetMediatorsContractSerializer,
     PutAttachmentProofSerializer,
 )
@@ -348,7 +351,10 @@ class GetSpecificContractAPIView(APIView):
             )
 
         contract = get_object_or_404(Contract, id=contract_id)
-        serializer = GetContractSerializer(contract)
+        if user == contract.contractee or user == contract.contractor:
+            serializer = GetFullContractSerializer(contract)
+        else:
+            serializer = GetContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -394,3 +400,53 @@ class GetMediatorContractsAPIView(APIView):
         serializer = GetMediatorsContractSerializer(all_contracts, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ContractCompleteAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsContractorOrRead]
+
+    def put(self, request: HttpRequest, contract_id) -> Response:
+        curr_contr = get_object_or_404(Contract, id=contract_id)
+        self.check_object_permissions(request, curr_contr)
+
+        if curr_contr.contractee is None:
+            return Response(
+                {
+                    "error": "Can't complete the contract when the contractee is not assigned, need to cancel instead"
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = CompleteContractSerializer(
+            curr_contr, data={"completed": True}, partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ContractDeleteAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsContractorOrRead]
+
+    def delete(self, request: HttpRequest, contract_id) -> Response:
+        contract = get_object_or_404(Contract, id=contract_id)
+        self.check_object_permissions(request, contract)
+
+        if contract.contractee:
+            return Response(
+                {"error": "Can't cancel the contract when the contractee is assigned"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        contract.delete()
+
+        res = {
+            "status": status.HTTP_200_OK,
+            "message": f"Your contract with ID {contract_id} has been deleted.",
+        }
+        return Response(res, status=status.HTTP_200_OK)

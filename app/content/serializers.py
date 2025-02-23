@@ -34,8 +34,6 @@ class ContractSerializer(serializers.ModelSerializer):
 
 
 class GetContractSerializer(serializers.ModelSerializer):
-    contractor = CustomUserSerializer(read_only=True)
-    contractee = CustomUserSerializer(read_only=True)
 
     class Meta:
         model = Contract
@@ -44,8 +42,6 @@ class GetContractSerializer(serializers.ModelSerializer):
             "title",
             "reward",
             "description",
-            "contractor",
-            "contractee",
             "completed",
         ]
 
@@ -64,4 +60,29 @@ class GetMediatorsContractSerializer(serializers.ModelSerializer):
             "id",
             "description",
             "proof",
+        ]
+
+class GetFullContractSerializer(serializers.ModelSerializer):
+    contractor = CustomUserSerializer(read_only=True)
+    contractee = CustomUserSerializer(read_only=True)
+
+    class Meta:
+        model = Contract
+        fields = [
+            "id",
+            "title",
+            "reward",
+            "description",
+            "contractor",
+            "contractee",
+            "completed",
+            "proof",
+        ]
+
+class CompleteContractSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Contract
+        fields = [
+            "completed",
         ]

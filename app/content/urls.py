@@ -37,4 +37,24 @@ urlpatterns = [
         views.GetMediatorContractsAPIView.as_view(),
         name="mediator-get-contracts",
     ),
+    path(
+        "contracts/<int:contract_id>/add-proof/",
+        views.AttachProofAPIView.as_view(),
+        name="get-proof",
+    ),
+    path(
+        "mediator-get-contracts/",
+        views.GetMediatorContractsAPIView.as_view(),
+        name="mediator-get-contracts",
+    ),
+    path(
+        "contracts/complete/<int:contract_id>/",
+        views.ContractCompleteAPIView.as_view(),
+        name="complete-contract",
+    ),
+    path(
+        "contracts/delete/<int:contract_id>/",
+        views.ContractDeleteAPIView.as_view(),
+        name="delete-contract",
+    ),
 ]
