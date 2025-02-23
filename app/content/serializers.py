@@ -65,3 +65,18 @@ class GetMediatorsContractSerializer(serializers.ModelSerializer):
             "description",
             "proof",
         ]
+
+class GetFullContractSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Contract
+        fields = [
+            "id",
+            "title",
+            "reward",
+            "description",
+            "contractor",
+            "contractee",
+            "completed",
+            "proof",
+        ]

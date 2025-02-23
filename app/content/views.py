@@ -19,7 +19,7 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Contract, CustomUser
-from .serializers import ContractSerializer, GetContractSerializer, PutAttachmentProofSerializer, GetMediatorsContractSerializer
+from .serializers import ContractSerializer, GetContractSerializer, PutAttachmentProofSerializer, GetMediatorsContractSerializer, GetFullContractSerializer
 
 usdc_transfer = USDCTransfer()
 
@@ -272,7 +272,10 @@ class GetSpecificContractAPIView(APIView):
                             status=status.HTTP_403_FORBIDDEN, )
 
         contract = get_object_or_404(Contract, id=contract_id)
-        serializer = GetContractSerializer(contract)
+        if user==contract.contractee or user==contract.contractor:
+            serializer = GetFullContractSerializer(contract)
+        else:
+            serializer = GetContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class AttachProofAPIView(APIView):
