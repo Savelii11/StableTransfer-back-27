@@ -19,7 +19,7 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Contract, CustomUser
-from .serializers import ContractSerializer, GetContractSerializer
+from .serializers import ContractSerializer, GetContractSerializer, PutAttachmentProofSerializer, GetMediatorsContractSerializer
 
 usdc_transfer = USDCTransfer()
 
@@ -213,7 +213,7 @@ class ContractRaiseDispute(APIView):
                 mediators
             )  # If no descriptions are available, fallback to random selection
 
-        # ✅ Construct the prompt correctly
+
         mediator_profiles_str = "\n".join(mediator_profiles)  # Create a string first
 
         prompt = f"""
@@ -290,6 +290,51 @@ class GetSpecificContractAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request: HttpRequest, contract_id: int) -> Response:
+        user = request.user
+        if user.is_checker==True:
+            return Response({"error": f"Only the ordinary users can see Contract's details"},
+                            status=status.HTTP_403_FORBIDDEN, )
+
         contract = get_object_or_404(Contract, id=contract_id)
         serializer = GetContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class AttachProofAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request: HttpRequest, contract_id: int) ->Response:
+        contract = get_object_or_404(Contract, id=contract_id)
+        user = request.user
+        if contract.contractee!=user:
+            return Response({"error": f"Only the contractee can attach proof.Current user: {user.fullname}"},
+                status=status.HTTP_403_FORBIDDEN,)
+
+        serializer = PutAttachmentProofSerializer(contract, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetMediatorContractsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: HttpRequest) -> Response:
+        user = request.user
+        if user.is_checker==False:
+            return Response({"error":"Only the mediators can request this information"}, status=status.HTTP_403_FORBIDDEN,)
+
+        all_contracts = Contract.objects.filter(mediator=user)
+        serializer = GetMediatorsContractSerializer(all_contracts, many = True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+
+
