@@ -278,6 +278,9 @@ class ProcessContractDisputeAPIView(APIView):
         is_dispute_approved = request.data.get("is_disputed_contract")
         transfer = get_object_or_404(Transfer, id=transfer_id)
 
+        contract_curr = transfer.contract
+
+
         if transfer.mediator != user:
             return Response(
                 {"error": "You are not the assigned mediator for this dispute."},
@@ -289,6 +292,8 @@ class ProcessContractDisputeAPIView(APIView):
                 {"error": "Transfer is not in disputed status."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
 
         try:
             # Send 99% of the reward to either the sender (if dispute is approved)
@@ -311,6 +316,12 @@ class ProcessContractDisputeAPIView(APIView):
             transfer.tx_hash = new_tx_hash
             transfer.status = "Cancelled" if is_dispute_approved else "Completed"
             transfer.save()
+            if transfer.status=="Completed":
+                contract_curr.completed = True
+                contract_curr.save()
+     
+
+
 
             return Response(
                 {
@@ -327,6 +338,7 @@ class ProcessContractDisputeAPIView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 
 class GetContractsAPIView(APIView):
