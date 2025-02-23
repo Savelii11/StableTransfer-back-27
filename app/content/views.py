@@ -314,9 +314,11 @@ class ProcessContractDispute(APIView):
 
             transfer.tx_hash = new_tx_hash
             transfer.status = "Cancelled" if is_dispute_approved else "Completed"
-            contract_curr.completed = True
-            contract_curr.save()
             transfer.save()
+            if transfer.status=="Completed":
+                contract_curr.completed = True
+                contract_curr.save()
+     
 
 
 
