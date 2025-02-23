@@ -38,7 +38,6 @@ class ContractSerializer(serializers.ModelSerializer):
 class GetContractSerializer(serializers.ModelSerializer):
     contractor = CustomUserSerializer(read_only=True)
     contractee = CustomUserSerializer(read_only=True)
-    mediator = CustomUserSerializer(read_only=True)
 
     class Meta:
         model = Contract
@@ -56,5 +55,15 @@ class PutAttachmentProofSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contract
         fields = [
+            "proof",
+        ]
+
+class GetMediatorsContractSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Contract
+        fields = [
+            "id",
+            "description",
             "proof",
         ]

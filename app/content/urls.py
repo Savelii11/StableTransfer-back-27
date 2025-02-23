@@ -23,4 +23,5 @@ urlpatterns = [
         name="get-specific-contract",
     ),
     path("contracts/<int:contract_id>/add-proof/",views.AttachProofAPIView.as_view(), name="get-proof"),
+    path("mediator-get-contracts/", views.GetMediatorContractsAPIView.as_view(), name="mediator-get-contracts"),
 ]

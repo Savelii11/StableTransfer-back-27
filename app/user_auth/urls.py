@@ -13,4 +13,5 @@ urlpatterns = [
         name="token-verify",
     ),
     path("get_user/<int:user_id>/", views.UserAPIView.as_view(), name="get-user"),
+    path("profile/", views.ProfileAPIView.as_view(), name="profile"),
 ]
