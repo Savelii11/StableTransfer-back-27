@@ -280,7 +280,6 @@ class ProcessContractDisputeAPIView(APIView):
 
         contract_curr = transfer.contract
 
-
         if transfer.mediator != user:
             return Response(
                 {"error": "You are not the assigned mediator for this dispute."},
@@ -292,8 +291,6 @@ class ProcessContractDisputeAPIView(APIView):
                 {"error": "Transfer is not in disputed status."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-
 
         try:
             # Send 99% of the reward to either the sender (if dispute is approved)
@@ -316,12 +313,9 @@ class ProcessContractDisputeAPIView(APIView):
             transfer.tx_hash = new_tx_hash
             transfer.status = "Cancelled" if is_dispute_approved else "Completed"
             transfer.save()
-            if transfer.status=="Completed":
+            if transfer.status == "Completed":
                 contract_curr.completed = True
                 contract_curr.save()
-     
-
-
 
             return Response(
                 {
@@ -338,7 +332,6 @@ class ProcessContractDisputeAPIView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
 
 
 class GetContractsAPIView(APIView):
@@ -436,8 +429,35 @@ class ContractCompleteAPIView(APIView):
         )
 
         if serializer.is_valid():
+            # Mark the contract as complete
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+
+            # Retrieve the Transfer associated with this Contract (OneToOne relation)
+            transfer = curr_contr.contract
+
+            # try:
+            #     # Send 100% of the reward to the contractee
+            #     tx_hash = usdc_manager.send_usdc(
+            #         curr_contr.contractee.wallet_address, transfer.id, 100.0
+            #     )
+            # except Exception as e:
+            #     return Response(
+            #         {"error": f"Payment failed: {str(e)}"},
+            #         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            #     )
+
+            # Update the Transfer with the transaction hash and new status
+            # transfer.tx_hash = tx_hash
+            transfer.status = "Completed"
+            transfer.save()
+
+            return Response(
+                {
+                    "message": "Contract completed and payment sent successfully.",
+                    "contract": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
