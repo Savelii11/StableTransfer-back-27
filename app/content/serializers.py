@@ -49,6 +49,5 @@ class GetContractSerializer(serializers.ModelSerializer):
             "description",
             "contractor",
             "contractee",
-            "mediator",
             "completed",
         ]

@@ -1,6 +1,7 @@
 import random
 from typing import Any, Dict
-
+import openai
+import os
 from django.contrib.auth import authenticate, logout
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -166,7 +167,8 @@ class ContractRaiseDispute(APIView):
             )
 
         # Randomly select a mediator
-        mediator = random.choice(list(potential_mediators))
+        #mediator = random.choice(list(potential_mediators))
+        mediator = self.get_best_mediator(contract.description, potential_mediators)
 
         # Assign the mediator to both the contract and transfer
         contract.mediator = mediator
@@ -178,10 +180,53 @@ class ContractRaiseDispute(APIView):
 
         response_data: Dict[str, Any] = {
             "message": "Dispute raised successfully.",
-            "mediator": mediator.email,
             "transfer_status": transfer.status,
         }
         return Response(response_data, status=status.HTTP_200_OK)
+
+    def get_best_mediator(self, contract_description, mediators):
+        """
+        Use OpenAI to match the contract description with the most relevant mediator.
+        """
+        openai.api_key = os.environ.get("OPENAI_API_KEY")  # Ensure this is set in Django settings
+
+        # Prepare mediator descriptions for comparison
+        mediator_profiles = [
+            f"Mediator {mediator.id}: {mediator.description}" for mediator in mediators if
+            hasattr(mediator, "description") and mediator.description
+        ]
+
+        if not mediator_profiles:
+            return random.choice(mediators)  # If no descriptions are available, fallback to random selection
+
+        # ✅ Construct the prompt correctly
+        mediator_profiles_str = "\n".join(mediator_profiles)  # Create a string first
+
+        prompt = f"""
+            Given the following contract description, select the best mediator from the list below.
+
+            Contract Description: {contract_description}
+
+            Mediator Profiles:
+            {mediator_profiles_str}
+
+            Choose the best mediator by returning ONLY their ID.
+            """
+
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=10
+            )
+
+            mediator_id = int(response["choices"][0]["message"]["content"].strip())
+            return mediators.get(id=mediator_id)
+
+        except Exception as e:
+            print(f"OpenAI Error: {e}")
+            return random.choice(mediators)
 
 
 class ProcessContractDispute(APIView):
