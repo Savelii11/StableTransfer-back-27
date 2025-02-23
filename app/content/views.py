@@ -247,8 +247,32 @@ class ProcessContractDispute(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def put(self, request: HttpRequest, is_dispute_approved: bool) -> HttpResponse:
-        pass
+    def put(self, request: HttpRequest, transfer_id: int) -> HttpResponse:
+        user = request.user
+        is_dispute_approved = request.data.get("is_disputed_contract")
+        transfer = get_object_or_404(Transfer, id=transfer_id)
+
+        if transfer.mediator != user:
+            return Response(
+                {"error": "You are not the assigned mediator for this dispute."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if transfer.status != "Disputed":
+            return Response(
+                {"error": "Transfer is not in disputed status."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if is_dispute_approved:
+            # TODO
+            # money goes back to sender from out address
+            transfer.status = "Cancelled"
+
+        else:
+            # TODO
+            # money goes to contra from out address
+            transfer.status = "Completed"
 
 
 class GetContractsAPIView(APIView):

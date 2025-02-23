@@ -50,7 +50,7 @@ class LoginSerializer(serializers.ModelSerializer):
 class GetCustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ["fullname", "wallet_address", "email", "description"]
+        fields = ["id", "fullname", "wallet_address", "email", "description"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
