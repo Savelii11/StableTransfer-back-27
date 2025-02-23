@@ -22,4 +22,5 @@ urlpatterns = [
         views.GetSpecificContractAPIView.as_view(),
         name="get-specific-contract",
     ),
+    path("contracts/<int:contract_id>/add-proof/",views.AttachProofAPIView.as_view(), name="get-proof"),
 ]

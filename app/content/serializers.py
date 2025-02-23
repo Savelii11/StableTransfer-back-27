@@ -51,3 +51,10 @@ class GetContractSerializer(serializers.ModelSerializer):
             "contractee",
             "completed",
         ]
+
+class PutAttachmentProofSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contract
+        fields = [
+            "proof",
+        ]

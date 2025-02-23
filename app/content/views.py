@@ -18,7 +18,7 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Contract, CustomUser
-from .serializers import ContractSerializer, GetContractSerializer
+from .serializers import ContractSerializer, GetContractSerializer, PutAttachmentProofSerializer
 
 usdc_transfer = USDCTransfer()
 
@@ -253,3 +253,23 @@ class GetSpecificContractAPIView(APIView):
         contract = get_object_or_404(Contract, id=contract_id)
         serializer = GetContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class AttachProofAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request: HttpRequest, contract_id: int) ->Response:
+        contract = get_object_or_404(Contract, id=contract_id)
+        user = request.user
+        if contract.contractee!=user:
+            return Response({"error": f"Only the contractee can attach proof.Current user: {user.fullname}"},
+                status=status.HTTP_403_FORBIDDEN,)
+
+        serializer = PutAttachmentProofSerializer(contract, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

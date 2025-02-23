@@ -36,3 +36,4 @@ class Contract(models.Model):
         null=True,
     )
     completed = models.BooleanField(default=False)
+    proof = models.CharField(max_length=150, blank=True, null=True)
