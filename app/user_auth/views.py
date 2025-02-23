@@ -105,6 +105,18 @@ class UserAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    def get(self, request: HttpRequest, user_id: int) -> HttpResponse:
+        custom_user = get_object_or_404(CustomUser, pk=user_id)
+
+        return Response(
+            GetCustomUserSerializer(custom_user).data, status=status.HTTP_200_OK
+        )
+
+
+class ProfileAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request: HttpRequest) -> HttpResponse:
         custom_user = get_object_or_404(CustomUser, pk=request.user.id)
         return Response(
