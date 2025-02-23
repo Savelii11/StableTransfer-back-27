@@ -8,7 +8,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from payments.models import Transfer
-from payments.usdc_transfer import USDCTransfer
+from payments.usdc_transfer import USDCManager
 from rest_framework import exceptions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -19,9 +19,14 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Contract, CustomUser
-from .serializers import ContractSerializer, GetContractSerializer, PutAttachmentProofSerializer, GetMediatorsContractSerializer
+from .serializers import (
+    ContractSerializer,
+    GetContractSerializer,
+    GetMediatorsContractSerializer,
+    PutAttachmentProofSerializer,
+)
 
-usdc_transfer = USDCTransfer()
+usdc_manager = USDCManager()
 
 
 class ContractCreateView(APIView):
@@ -30,57 +35,76 @@ class ContractCreateView(APIView):
 
     def post(self, request: HttpRequest) -> HttpResponse:
 
+        # Ensure checkers are not creating contracts
         if request.user.is_checker:
             raise exceptions.PermissionDenied(
                 "Checkers are not allowed to create contracts."
             )
 
+        # Extract transaction hash
         data = request.data.copy()
         trans_hash = data.pop("transaction_hash", None)
 
-        # Create the contract (without transaction_hash)
-        tx_data = usdc_transfer.get_tx_data(trans_hash)
-
-        if not tx_data:
+        if not trans_hash:
             return Response(
-                {"message": "Tx hash is invalid"},
+                {"message": "Transaction hash is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        transfer = usdc_transfer.get_transferred_usdc(tx_data)
+        # Retrieve transaction data from Etherscan/Alchemy
+        tx_data = usdc_manager.get_tx_data(trans_hash)
 
-        if (
-            usdc_transfer.is_receiver(
-                tx_data, usdc_transfer.STABLE_TRANSFER_ADDRESS_SEPOLIA
+        if not tx_data:
+            return Response(
+                {"message": "Invalid transaction hash or transaction not found."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            and usdc_transfer.is_sender(tx_data, request.user.wallet_address)
-            and usdc_transfer.is_usdc_amount_correct(transfer, float(data["reward"]))
-        ):
-            serializer = ContractSerializer(data=data, context={"request": request})
-            if serializer.is_valid():
-                contract = serializer.save(
-                    contractor=request.user
-                )  # Assign contractor automatically
 
-                Transfer.objects.create(
-                    sender=request.user,
-                    contract=contract,
-                    tx_hash=trans_hash,
-                    status="Created",
-                )
+        # Extract all USDC transfers from the transaction
+        transfers = usdc_manager.get_transferred_usdc(tx_data)
 
-                return Response(
-                    ContractSerializer(contract).data, status=status.HTTP_201_CREATED
-                )
+        if not transfers:
+            return Response(
+                {"message": "No valid USDC transfers found in the transaction."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Check if the user is the sender and the contract address is the receiver
+        is_valid_transfer = all(
+            usdc_manager.is_receiver(
+                transfer, usdc_manager.STABLE_TRANSFER_ADDRESS_SEPOLIA
+            )
+            and usdc_manager.is_sender(transfer, request.user.wallet_address)
+            and usdc_manager.is_usdc_amount_correct(
+                transfer, float(data.get("reward", 0))
+            )
+            for transfer in transfers
+        )
 
-        else:
-            response = {
-                "message": "Transaction is invalid",
-            }
-            return Response(response, status=status.HTTP_400_BAD_REQUEST)
+        if not is_valid_transfer:
+            return Response(
+                {"message": "Transaction validation failed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Create contract if the transaction is valid
+        serializer = ContractSerializer(data=data, context={"request": request})
+        if serializer.is_valid():
+            contract = serializer.save(contractor=request.user)
+
+            # Create Transfer entry for the contract
+            Transfer.objects.create(
+                sender=request.user,
+                contract=contract,
+                tx_hash=trans_hash,
+                status="Created",
+            )
+
+            return Response(
+                ContractSerializer(contract).data, status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AcceptContractAPIView(APIView):
@@ -213,7 +237,6 @@ class ContractRaiseDispute(APIView):
                 mediators
             )  # If no descriptions are available, fallback to random selection
 
-
         mediator_profiles_str = "\n".join(mediator_profiles)  # Create a string first
 
         prompt = f"""
@@ -264,15 +287,42 @@ class ProcessContractDispute(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if is_dispute_approved:
-            # TODO
-            # money goes back to sender from out address
-            transfer.status = "Cancelled"
+        try:
+            # Send 99% of the reward to either the sender (if dispute is approved) or contractor (if rejected)
+            recipient = (
+                transfer.sender.wallet_address
+                if is_dispute_approved
+                else transfer.receiver.wallet_address
+            )
+            new_tx_hash = usdc_manager.send_usdc(recipient, transfer.contract.id, 99.0)
 
-        else:
-            # TODO
-            # money goes to contra from out address
-            transfer.status = "Completed"
+            # Send 1% of the reward to the mediator
+            mediator_tx_hash = usdc_manager.send_usdc(
+                transfer.mediator.wallet_address, transfer.contract.id, 1.0
+            )
+
+            print(f"Transaction sent! TX Hash: {new_tx_hash}")
+            print(f"Mediator Paid! TX Hash: {mediator_tx_hash}")
+
+            transfer.tx_hash = new_tx_hash
+            transfer.status = "Cancelled" if is_dispute_approved else "Completed"
+            transfer.save()
+
+            return Response(
+                {
+                    "message": "Dispute processed successfully.",
+                    "transaction_hash": new_tx_hash,
+                    "mediator_transaction_hash": mediator_tx_hash,
+                    "new_status": transfer.status,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class GetContractsAPIView(APIView):
@@ -291,26 +341,35 @@ class GetSpecificContractAPIView(APIView):
 
     def get(self, request: HttpRequest, contract_id: int) -> Response:
         user = request.user
-        if user.is_checker==True:
-            return Response({"error": f"Only the ordinary users can see Contract's details"},
-                            status=status.HTTP_403_FORBIDDEN, )
+        if user.is_checker == True:
+            return Response(
+                {"error": f"Only the ordinary users can see Contract's details"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         contract = get_object_or_404(Contract, id=contract_id)
         serializer = GetContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
 class AttachProofAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def put(self, request: HttpRequest, contract_id: int) ->Response:
+    def put(self, request: HttpRequest, contract_id: int) -> Response:
         contract = get_object_or_404(Contract, id=contract_id)
         user = request.user
-        if contract.contractee!=user:
-            return Response({"error": f"Only the contractee can attach proof.Current user: {user.fullname}"},
-                status=status.HTTP_403_FORBIDDEN,)
+        if contract.contractee != user:
+            return Response(
+                {
+                    "error": f"Only the contractee can attach proof.Current user: {user.fullname}"
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-        serializer = PutAttachmentProofSerializer(contract, data=request.data, partial=True)
+        serializer = PutAttachmentProofSerializer(
+            contract, data=request.data, partial=True
+        )
 
         if serializer.is_valid():
             serializer.save()
@@ -325,16 +384,13 @@ class GetMediatorContractsAPIView(APIView):
 
     def get(self, request: HttpRequest) -> Response:
         user = request.user
-        if user.is_checker==False:
-            return Response({"error":"Only the mediators can request this information"}, status=status.HTTP_403_FORBIDDEN,)
+        if user.is_checker == False:
+            return Response(
+                {"error": "Only the mediators can request this information"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         all_contracts = Contract.objects.filter(mediator=user)
-        serializer = GetMediatorsContractSerializer(all_contracts, many = True)
+        serializer = GetMediatorsContractSerializer(all_contracts, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-
-
-
-
