@@ -1,6 +1,7 @@
 import random
 from typing import Any, Dict
-
+import openai
+import os
 from django.contrib.auth import authenticate, logout
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -73,6 +74,12 @@ class AcceptContractAPIView(APIView):
     def put(self, request: HttpRequest, contract_id: int) -> HttpResponse:
         user = request.user
 
+        if user.is_checker == True:
+            return Response(
+                {"error": "Mediator isn't allowed to accept contract."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Get the contract
         contract = get_object_or_404(Contract, id=contract_id)
 
@@ -93,15 +100,18 @@ class AcceptContractAPIView(APIView):
         contract.contractee = user
         contract.save()
 
-        try:
-            transfer = contract.transfer
-            transfer.receiver = user
-            transfer.save()
-        except Transfer.DoesNotExist:
+        # Get the associated transfer object (handle case where no transfer exists)
+        transfer = getattr(contract, "contract", None)
+
+        if transfer is None:
             return Response(
                 {"error": "No Transfer associated with this contract."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        # Update the transfer receiver
+        transfer.receiver = user
+        transfer.save()
 
         response_data = {"message": "Contract successfully accepted."}
         return Response(response_data, status=status.HTTP_200_OK)
@@ -113,7 +123,16 @@ class ContractRaiseDispute(APIView):
 
     def put(self, request: HttpRequest, contract_id: int) -> Response:
         user = request.user
+
+        # Retrieve the contract
         contract = get_object_or_404(Contract, id=contract_id)
+
+        # Ensure the contract has a contractee
+        if not contract.contractee:
+            return Response(
+                {"error": "The contract doesn't have a contractee."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Ensure that only the contractor can raise a dispute
         if contract.contractor != user:
@@ -122,16 +141,16 @@ class ContractRaiseDispute(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Ensure the contract has a valid transfer associated
-        try:
-            transfer: Transfer = contract.transfer
-        except Transfer.DoesNotExist:
+        # Retrieve the transfer associated with the contract
+        transfer = getattr(contract, "contract", None)
+
+        if transfer is None:
             return Response(
                 {"error": "No Transfer associated with this contract."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Get a list of all users who are not the contractor or contractee
+        # Get a list of available mediators (users with is_checker=True)
         potential_mediators = CustomUser.objects.filter(is_checker=True)
 
         if not potential_mediators.exists():
@@ -141,7 +160,8 @@ class ContractRaiseDispute(APIView):
             )
 
         # Randomly select a mediator
-        mediator = random.choice(potential_mediators)
+        #mediator = random.choice(list(potential_mediators))
+        mediator = self.get_best_mediator(contract.description, potential_mediators)
 
         # Assign the mediator to both the contract and transfer
         contract.mediator = mediator
@@ -151,12 +171,60 @@ class ContractRaiseDispute(APIView):
         transfer.status = "Disputed"
         transfer.save()
 
-        response_data = {
+        response_data: Dict[str, Any] = {
             "message": "Dispute raised successfully.",
-            "mediator": mediator.email,
             "transfer_status": transfer.status,
         }
         return Response(response_data, status=status.HTTP_200_OK)
+
+    def get_best_mediator(self, contract_description, mediators):
+        """
+        Use OpenAI to match the contract description with the most relevant mediator.
+        """
+        openai.api_key = os.environ.get("OPENAI_API_KEY")  # Ensure this is set in Django settings
+
+        # Prepare mediator descriptions for comparison
+        mediator_profiles = [
+            f"Mediator {mediator.id}: {mediator.description}" for mediator in mediators if
+            hasattr(mediator, "description") and mediator.description
+        ]
+
+        if not mediator_profiles:
+            return random.choice(mediators)  # If no descriptions are available, fallback to random selection
+
+        # ✅ Construct the prompt correctly
+        mediator_profiles_str = "\n".join(mediator_profiles)  # Create a string first
+
+        prompt = f"""
+            Given the following contract description, select the best mediator from the list below.
+
+            Contract Description: {contract_description}
+
+            Mediator Profiles:
+            {mediator_profiles_str}
+
+            Choose the best mediator by returning ONLY their ID.
+            """
+
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=10
+            )
+
+            mediator_id = int(response["choices"][0]["message"]["content"].strip())
+            return mediators.get(id=mediator_id)
+
+        except Exception as e:
+            print(f"OpenAI Error: {e}")
+            return random.choice(mediators)
+
+
+class ProcessContractDispute(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class GetContractsAPIView(APIView):
@@ -166,11 +234,15 @@ class GetContractsAPIView(APIView):
     def get(self, request: HttpRequest) -> HttpResponse:
         user = request.user
         contracts = Contract.objects.filter(contractor=user)
-
-        if not contracts.exists():
-            return Response(
-                {"message": "No contracts found."}, status=status.HTTP_404_NOT_FOUND
-            )
-
         serializer = GetContractSerializer(contracts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class GetSpecificContractAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: HttpRequest, contract_id: int) -> Response:
+        contract = get_object_or_404(Contract, id=contract_id)
+        serializer = ContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)
