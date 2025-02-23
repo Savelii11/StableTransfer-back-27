@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from typing import Dict, List
 
 import requests
@@ -57,81 +57,82 @@ class USDCManager:
             return True
 
     def send_usdc(
-        self, receiver_address: str, transfer_id: int, percentage: float = 100.0
+        self, receiver_address: str, transfer_id: int, reward_percentage: float = 100.0
     ) -> str:
         """
-        Automatically sends USDC and retries if needed.
+        Automatically sends USDC based on a percentage of the total reward.
         """
         try:
             transfer = Transfer.objects.get(id=transfer_id)
         except ObjectDoesNotExist:
             raise ValueError("Transfer not found.")
 
-        sender = Web3.to_checksum_address(self.STABLE_TRANSFER_ADDRESS_SEPOLIA)
-        receiver = Web3.to_checksum_address(receiver_address)
+        if not self.web3.is_connected():
+            raise Exception("❌ Failed to connect to Sepolia network")
+        print("✅ Connected to Sepolia Testnet")
 
-        amount_wei = int(
-            (
-                Decimal(str(transfer.contract.reward))
-                * Decimal(str(percentage))
-                / Decimal("100")
-            )
-            * Decimal("1e6")
+        sender_account = self.web3.eth.account.from_key(self.PRIVATE_KEY)
+        sender_address = sender_account.address
+        print(f"📩 Sender Address: {sender_address}")
+
+        USDC_CONTRACT_ADDRESS = self.web3.to_checksum_address(
+            self.USDC_CONTRACT_ADDRESS_SEPOLIA
+        )
+        usdc_contract = self.web3.eth.contract(
+            address=USDC_CONTRACT_ADDRESS, abi=self.ERC20_ABI
         )
 
-        usdc_contract = self.get_usdc_contract()
+        # ✅ Step 1: Check USDC Balance
+        balance = usdc_contract.functions.balanceOf(sender_address).call()
+        # Convert balance to Decimal for accurate comparison (USDC has 6 decimals)
+        balance_decimal = Decimal(str(balance)) / Decimal(10**6)
+        print(f"💰 USDC Balance: {balance_decimal} USDC")
 
-        latest_block = self.web3.eth.get_block("latest")
-        base_fee = latest_block.get("baseFeePerGas", self.web3.to_wei(10, "gwei"))
-        priority_fee = self.web3.to_wei(2, "gwei")
+        reward = Decimal(str(transfer.contract.reward))
+        percentage = Decimal(str(reward_percentage))
+        # Calculate the reward amount based on the percentage
+        reward_amount = reward * (percentage / Decimal("100"))
 
-        nonce = self.web3.eth.get_transaction_count(
-            sender, "pending"
-        )  # Get latest nonce
+        # Convert reward amount to smallest unit (since USDC has 6 decimals)
+        # Rounding down to avoid sending extra funds due to precision issues
+        amount_in_smallest_unit = int(
+            (reward_amount * Decimal(10**6)).to_integral_value(rounding=ROUND_DOWN)
+        )
 
-        max_retries = 3  # Maximum retry attempts
-        retry_delay = 10  # Seconds between retries
+        if balance_decimal < reward_amount:
+            raise Exception("❌ Not enough USDC to pay reward")
 
-        for attempt in range(max_retries):
-            try:
-                priority_fee = self.web3.to_wei(
-                    2 + attempt * 2, "gwei"
-                )  # Increase priority fee each retry
-                max_fee = (
-                    base_fee + priority_fee + self.web3.to_wei(1, "gwei")
-                )  # Add buffer
+        # ✅ Step 2: Build and send the transaction
+        print("🚀 Sending USDC to recipient...")
+        nonce = self.web3.eth.get_transaction_count(sender_address)
+        transaction = usdc_contract.functions.transfer(
+            receiver_address, amount_in_smallest_unit
+        ).build_transaction(
+            {
+                "gas": 100000,
+                "gasPrice": self.web3.to_wei("4.4", "gwei"),
+                "nonce": nonce,
+                "chainId": 11155111,  # Sepolia Chain ID
+            }
+        )
 
-                tx = usdc_contract.functions.transfer(
-                    receiver, amount_wei
-                ).build_transaction(
-                    {
-                        "from": sender,
-                        "nonce": nonce,
-                        "gas": 150000,  # Slightly higher gas limit
-                        "maxPriorityFeePerGas": priority_fee,
-                        "maxFeePerGas": max_fee,
-                    }
-                )
+        signed_tx = self.web3.eth.account.sign_transaction(
+            transaction, self.PRIVATE_KEY
+        )
+        tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        print(f"✅ USDC Transfer Sent! Tx Hash: {self.web3.to_hex(tx_hash)}")
 
-                private_key_bytes = Web3.to_bytes(hexstr=self.PRIVATE_KEY)
-                signed_tx = self.web3.eth.account.sign_transaction(
-                    tx, private_key_bytes
-                )
-
-                tx_hash = self.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
-                return self.web3.to_hex(tx_hash)  # ✅ Successful transaction sent
-
-            except Exception as e:
-                print(f"⚠️ Attempt {attempt + 1} failed: {e}")
-
-                if "replacement transaction underpriced" in str(e):
-                    print("🔄 Retrying with a higher gas fee...")
-                    time.sleep(retry_delay)  # Wait before retrying
-
-                else:
-                    raise e  # ❌ If error is not related to gas fees, stop retrying
-
-        raise ValueError("❌ Failed to send USDC after multiple attempts.")
+        # ⏳ Wait for transfer confirmation
+        print("⏳ Waiting for transfer confirmation...")
+        try:
+            receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+            if receipt.status == 1:
+                print(f"✅ USDC Transfer Confirmed in block {receipt.blockNumber}")
+                return self.web3.to_hex(tx_hash)
+            else:
+                raise Exception("❌ USDC Transfer failed!")
+        except Exception as e:
+            raise Exception(f"❌ Error waiting for transfer confirmation: {e}")
 
     def get_tx_data(self, tx_hash: str) -> Dict:
 

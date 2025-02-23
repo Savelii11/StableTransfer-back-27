@@ -18,7 +18,7 @@ urlpatterns = [
     ),
     path(
         "process-contract-dispute/<int:contract_id>/",
-        views.ProcessContractDispute.as_view(),
+        views.ProcessContractDisputeAPIView.as_view(),
         name="process-contract-dispute",
     ),
     path("contracts/", views.GetContractsAPIView.as_view(), name="get-contract"),
