@@ -12,5 +12,5 @@ urlpatterns = [
         views.VerifyRefreshTokenAPIView.as_view(),
         name="token-verify",
     ),
-    path("get_user/", views.UserAPIView.as_view(), name="get-user"),
+    path("get_user/<int:user_id>/", views.UserAPIView.as_view(), name="get-user"),
 ]

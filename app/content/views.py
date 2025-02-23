@@ -206,5 +206,5 @@ class GetSpecificContractAPIView(APIView):
 
     def get(self, request: HttpRequest, contract_id: int) -> Response:
         contract = get_object_or_404(Contract, id=contract_id)
-        serializer = ContractSerializer(contract)
+        serializer = GetContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)

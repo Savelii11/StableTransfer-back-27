@@ -1,11 +1,16 @@
 from typing import Any, Dict
 
 from rest_framework import serializers
+from user_auth.serializers import CustomUserSerializer
 
 from .models import Contract
 
 
 class ContractSerializer(serializers.ModelSerializer):
+    contractor = CustomUserSerializer(read_only=True)
+    contractee = CustomUserSerializer(read_only=True)
+    mediator = CustomUserSerializer(read_only=True)
+
     class Meta:
         model = Contract
         fields = [
@@ -18,9 +23,7 @@ class ContractSerializer(serializers.ModelSerializer):
             "mediator",
             "completed",
         ]
-        read_only_fields = [
-            "contractor"
-        ]  # Prevent users from setting the contractor manually
+        read_only_fields = ["contractor"]
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -33,6 +36,10 @@ class ContractSerializer(serializers.ModelSerializer):
 
 
 class GetContractSerializer(serializers.ModelSerializer):
+    contractor = CustomUserSerializer(read_only=True)
+    contractee = CustomUserSerializer(read_only=True)
+    mediator = CustomUserSerializer(read_only=True)
+
     class Meta:
         model = Contract
         fields = [
