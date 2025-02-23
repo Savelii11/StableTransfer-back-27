@@ -366,10 +366,9 @@ class GetSpecificContractAPIView(APIView):
             )
 
         contract = get_object_or_404(Contract, id=contract_id)
-        if user == contract.contractee or user == contract.contractor:
-            serializer = GetFullContractSerializer(contract)
-        else:
-            serializer = GetContractSerializer(contract)
+
+        serializer = GetFullContractSerializer(contract)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
