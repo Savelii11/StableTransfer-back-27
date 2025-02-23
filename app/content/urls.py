@@ -16,14 +16,45 @@ urlpatterns = [
         views.ContractRaiseDispute.as_view(),
         name="contract-raise-dispute",
     ),
+    path(
+        "process-contract-dispute/<int:transfer_id>/",
+        views.ProcessContractDispute.as_view(),
+        name="process-contract-dispute",
+    ),
     path("contracts/", views.GetContractsAPIView.as_view(), name="get-contract"),
     path(
         "contracts/<int:contract_id>/",
         views.GetSpecificContractAPIView.as_view(),
         name="get-specific-contract",
     ),
-    path("contracts/<int:contract_id>/add-proof/",views.AttachProofAPIView.as_view(), name="get-proof"),
-    path("mediator-get-contracts/", views.GetMediatorContractsAPIView.as_view(), name="mediator-get-contracts"),
-    path("contracts/complete/<int:contract_id>/", views.ContractCompleteAPIView.as_view(), name="complete-contract"),
-    path("contracts/delete/<int:contract_id>/", views.ContractDeleteAPIView.as_view(), name="delete-contract")
+    path(
+        "contracts/<int:contract_id>/add-proof/",
+        views.AttachProofAPIView.as_view(),
+        name="get-proof",
+    ),
+    path(
+        "mediator-get-contracts/",
+        views.GetMediatorContractsAPIView.as_view(),
+        name="mediator-get-contracts",
+    ),
+    path(
+        "contracts/<int:contract_id>/add-proof/",
+        views.AttachProofAPIView.as_view(),
+        name="get-proof",
+    ),
+    path(
+        "mediator-get-contracts/",
+        views.GetMediatorContractsAPIView.as_view(),
+        name="mediator-get-contracts",
+    ),
+    path(
+        "contracts/complete/<int:contract_id>/",
+        views.ContractCompleteAPIView.as_view(),
+        name="complete-contract",
+    ),
+    path(
+        "contracts/delete/<int:contract_id>/",
+        views.ContractDeleteAPIView.as_view(),
+        name="delete-contract",
+    ),
 ]
