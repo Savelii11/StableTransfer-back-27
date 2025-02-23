@@ -78,3 +78,11 @@ class GetFullContractSerializer(serializers.ModelSerializer):
             "completed",
             "proof",
         ]
+
+class CompleteContractSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Contract
+        fields = [
+            "completed",
+        ]
