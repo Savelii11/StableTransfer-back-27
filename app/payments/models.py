@@ -43,4 +43,3 @@ class Transfer(models.Model):
         on_delete=models.CASCADE,
         related_name="mediator_receiver",
     )
-

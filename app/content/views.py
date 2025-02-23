@@ -291,17 +291,18 @@ class ProcessContractDispute(APIView):
             )
 
         try:
-            # Send 99% of the reward to either the sender (if dispute is approved) or contractor (if rejected)
+            # Send 99% of the reward to either the sender (if dispute is approved)
+            # or contractor (if dispute is rejected)
             recipient = (
                 transfer.sender.wallet_address
                 if is_dispute_approved
                 else transfer.receiver.wallet_address
             )
-            new_tx_hash = usdc_manager.send_usdc(recipient, transfer.contract.id, 99.0)
+            new_tx_hash = usdc_manager.send_usdc(recipient, transfer.id, 99.0)
 
             # Send 1% of the reward to the mediator
             mediator_tx_hash = usdc_manager.send_usdc(
-                transfer.mediator.wallet_address, transfer.contract.id, 1.0
+                transfer.mediator.wallet_address, transfer.id, 1.0
             )
 
             print(f"Transaction sent! TX Hash: {new_tx_hash}")
