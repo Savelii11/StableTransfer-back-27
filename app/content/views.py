@@ -269,7 +269,7 @@ class ContractRaiseDispute(APIView):
             return random.choice(mediators)
 
 
-class ProcessContractDispute(APIView):
+class ProcessContractDisputeAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
