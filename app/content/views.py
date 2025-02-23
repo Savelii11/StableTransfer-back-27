@@ -20,12 +20,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Contract, CustomUser
 from .serializers import ContractSerializer, GetContractSerializer
 
+usdc_transfer = USDCTransfer()
+
 
 class ContractCreateView(APIView):
     serializer_class = ContractSerializer
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
+    def post(self, request: HttpRequest) -> HttpResponse:
 
         if request.user.is_checker:
             raise exceptions.PermissionDenied(
@@ -35,14 +37,19 @@ class ContractCreateView(APIView):
         try:
             trans_hash = data.pop("transaction_hash", None)
 
-            usdc_transfer = USDCTransfer()
             # Create the contract (without transaction_hash)
             tx_data = usdc_transfer.get_tx_data(trans_hash)
             transfer = usdc_transfer.get_transferred_usdc(tx_data)
 
-            if usdc_transfer.is_receiver(
-                tx_data, usdc_transfer.STABLE_TRANSFER_ADDRESS_SEPOLIA
-            ) and usdc_transfer.is_usdc_amount_correct(transfer, float(data["reward"])):
+            if (
+                usdc_transfer.is_receiver(
+                    tx_data, usdc_transfer.STABLE_TRANSFER_ADDRESS_SEPOLIA
+                )
+                and usdc_transfer.is_sender(tx_data, request.user.wallet_address)
+                and usdc_transfer.is_usdc_amount_correct(
+                    transfer, float(data["reward"])
+                )
+            ):
                 serializer = ContractSerializer(data=data, context={"request": request})
             if serializer.is_valid():
                 contract = serializer.save(
@@ -244,5 +251,5 @@ class GetSpecificContractAPIView(APIView):
 
     def get(self, request: HttpRequest, contract_id: int) -> Response:
         contract = get_object_or_404(Contract, id=contract_id)
-        serializer = ContractSerializer(contract)
+        serializer = GetContractSerializer(contract)
         return Response(serializer.data, status=status.HTTP_200_OK)
