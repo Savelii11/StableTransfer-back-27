@@ -357,6 +357,28 @@ class ContractCompleteAPIView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class ContractDeleteAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsContractorOrRead]
+
+    def delete(self, request: HttpRequest, contract_id) -> Response:
+        contract = get_object_or_404(Contract, id=contract_id)
+        self.check_object_permissions(request, contract)
+
+        if contract.contractee:
+            return Response({"error":"Can't cancel the contract when the contractee is assigned"}, status=status.HTTP_403_FORBIDDEN,)
+
+        contract.delete()
+
+        res = {
+            "status": status.HTTP_200_OK,
+            "message": f"Your contract with ID {contract_id} has been deleted.",
+        }
+        return Response(res, status=status.HTTP_200_OK)
+
+
+
+
 
 
 
