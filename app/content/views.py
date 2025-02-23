@@ -247,6 +247,9 @@ class ProcessContractDispute(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    def put(self, request: HttpRequest, is_dispute_approved: bool) -> HttpResponse:
+        pass
+
 
 class GetContractsAPIView(APIView):
     authentication_classes = [JWTAuthentication]

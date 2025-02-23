@@ -9,7 +9,6 @@ from .models import Contract
 class ContractSerializer(serializers.ModelSerializer):
     contractor = CustomUserSerializer(read_only=True)
     contractee = CustomUserSerializer(read_only=True)
-    mediator = CustomUserSerializer(read_only=True)
 
     class Meta:
         model = Contract
@@ -20,7 +19,6 @@ class ContractSerializer(serializers.ModelSerializer):
             "description",
             "contractor",
             "contractee",
-            "mediator",
             "completed",
         ]
         read_only_fields = ["contractor"]
