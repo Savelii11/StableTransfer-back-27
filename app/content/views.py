@@ -253,8 +253,7 @@ class GetContractsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        user = request.user
-        contracts = Contract.objects.filter(contractor=user)
+        contracts = Contract.objects.all()
         serializer = GetContractSerializer(contracts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
