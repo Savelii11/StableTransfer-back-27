@@ -19,7 +19,7 @@ urlpatterns = [
     path("contracts/", views.GetContractsAPIView.as_view(), name="get-contract"),
     path(
         "contracts/<int:contract_id>/",
-        views.GetContractsAPIView.as_view(),
+        views.GetSpecificContractAPIView.as_view(),
         name="get-specific-contract",
     ),
 ]

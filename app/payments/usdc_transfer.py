@@ -51,9 +51,12 @@ class USDCTransfer:
         return transfer
 
     def is_receiver(self, tx_data: Dict, address_destination: str) -> bool:
-        # Check the transaction's "to" field for the receiver address.
         receiver = tx_data.get("to", "").lower()
         return receiver == address_destination.lower()
+
+    def is_sender(self, tx_data: Dict, address_sender: str) -> bool:
+        sender = tx_data.get("from", "").lower()
+        return sender == address_sender.lower()
 
     def is_usdc_amount_correct(
         self, transfer: List[Dict], contract_price: float
