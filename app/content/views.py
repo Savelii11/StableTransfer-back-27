@@ -273,10 +273,12 @@ class ProcessContractDispute(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def put(self, request: HttpRequest, transfer_id: int) -> HttpResponse:
+    def put(self, request: HttpRequest, contract_id: int) -> HttpResponse:
         user = request.user
         is_dispute_approved = request.data.get("is_disputed_contract")
-        transfer = get_object_or_404(Transfer, id=transfer_id)
+        contracttt = get_object_or_404(Contract, id=contract_id)
+        transfer = Transfer.objects.filter(contract=contracttt)
+        
 
         contract_curr = transfer.contract
 
@@ -318,7 +320,7 @@ class ProcessContractDispute(APIView):
             if transfer.status=="Completed":
                 contract_curr.completed = True
                 contract_curr.save()
-     
+
 
 
 

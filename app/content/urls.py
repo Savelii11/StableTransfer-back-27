@@ -17,7 +17,7 @@ urlpatterns = [
         name="contract-raise-dispute",
     ),
     path(
-        "process-contract-dispute/<int:transfer_id>/",
+        "process-contract-dispute/<int:contract_id>/",
         views.ProcessContractDispute.as_view(),
         name="process-contract-dispute",
     ),
