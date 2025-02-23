@@ -1,7 +1,8 @@
+import os
 import random
 from typing import Any, Dict
+
 import openai
-import os
 from django.contrib.auth import authenticate, logout
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -33,43 +34,51 @@ class ContractCreateView(APIView):
             raise exceptions.PermissionDenied(
                 "Checkers are not allowed to create contracts."
             )
+
         data = request.data.copy()
-        try:
-            trans_hash = data.pop("transaction_hash", None)
+        trans_hash = data.pop("transaction_hash", None)
 
-            # Create the contract (without transaction_hash)
-            tx_data = usdc_transfer.get_tx_data(trans_hash)
-            transfer = usdc_transfer.get_transferred_usdc(tx_data)
+        # Create the contract (without transaction_hash)
+        tx_data = usdc_transfer.get_tx_data(trans_hash)
 
-            if (
-                usdc_transfer.is_receiver(
-                    tx_data, usdc_transfer.STABLE_TRANSFER_ADDRESS_SEPOLIA
-                )
-                and usdc_transfer.is_sender(tx_data, request.user.wallet_address)
-                and usdc_transfer.is_usdc_amount_correct(
-                    transfer, float(data["reward"])
-                )
-            ):
-                serializer = ContractSerializer(data=data, context={"request": request})
+        if not tx_data:
+            return Response(
+                {"message": "Tx hash is invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        transfer = usdc_transfer.get_transferred_usdc(tx_data)
+
+        if (
+            usdc_transfer.is_receiver(
+                tx_data, usdc_transfer.STABLE_TRANSFER_ADDRESS_SEPOLIA
+            )
+            and usdc_transfer.is_sender(tx_data, request.user.wallet_address)
+            and usdc_transfer.is_usdc_amount_correct(transfer, float(data["reward"]))
+        ):
+            serializer = ContractSerializer(data=data, context={"request": request})
             if serializer.is_valid():
                 contract = serializer.save(
                     contractor=request.user
                 )  # Assign contractor automatically
 
-                if trans_hash:
-                    Transfer.objects.create(
-                        sender=request.user,
-                        contract=contract,
-                        tx_hash=trans_hash,
-                        status="Created",
-                    )
+                Transfer.objects.create(
+                    sender=request.user,
+                    contract=contract,
+                    tx_hash=trans_hash,
+                    status="Created",
+                )
 
                 return Response(
                     ContractSerializer(contract).data, status=status.HTTP_201_CREATED
                 )
-        except:
+
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        else:
             response = {
-                "message": "Hash is incorrect",
+                "message": "Transaction is invalid",
             }
             return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
@@ -167,7 +176,7 @@ class ContractRaiseDispute(APIView):
             )
 
         # Randomly select a mediator
-        #mediator = random.choice(list(potential_mediators))
+        # mediator = random.choice(list(potential_mediators))
         mediator = self.get_best_mediator(contract.description, potential_mediators)
 
         # Assign the mediator to both the contract and transfer
@@ -188,16 +197,21 @@ class ContractRaiseDispute(APIView):
         """
         Use OpenAI to match the contract description with the most relevant mediator.
         """
-        openai.api_key = os.environ.get("OPENAI_API_KEY")  # Ensure this is set in Django settings
+        openai.api_key = os.environ.get(
+            "OPENAI_API_KEY"
+        )  # Ensure this is set in Django settings
 
         # Prepare mediator descriptions for comparison
         mediator_profiles = [
-            f"Mediator {mediator.id}: {mediator.description}" for mediator in mediators if
-            hasattr(mediator, "description") and mediator.description
+            f"Mediator {mediator.id}: {mediator.description}"
+            for mediator in mediators
+            if hasattr(mediator, "description") and mediator.description
         ]
 
         if not mediator_profiles:
-            return random.choice(mediators)  # If no descriptions are available, fallback to random selection
+            return random.choice(
+                mediators
+            )  # If no descriptions are available, fallback to random selection
 
         # ✅ Construct the prompt correctly
         mediator_profiles_str = "\n".join(mediator_profiles)  # Create a string first
@@ -218,7 +232,7 @@ class ContractRaiseDispute(APIView):
                 model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
-                max_tokens=10
+                max_tokens=10,
             )
 
             mediator_id = int(response["choices"][0]["message"]["content"].strip())

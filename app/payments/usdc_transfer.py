@@ -13,9 +13,6 @@ class USDCTransfer:
     SEPOLIA_ETHERSCAN_API_KEY = os.environ.get("SEPOLIA_ETHERSCAN_API_KEY")
     API_URL = os.environ.get("API_URL")
 
-    def is_tx_hash_valid(self, tx_hash: str) -> bool:
-        pass
-
     def get_tx_data(self, tx_hash: str) -> Dict:
 
         # Get the transaction receipt, which includes logs
