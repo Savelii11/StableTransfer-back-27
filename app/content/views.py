@@ -253,6 +253,9 @@ class ProcessContractDispute(APIView):
         is_dispute_approved = request.data.get("is_disputed_contract")
         transfer = get_object_or_404(Transfer, id=transfer_id)
 
+        contract_curr = transfer.contract
+
+
         if transfer.mediator != user:
             return Response(
                 {"error": "You are not the assigned mediator for this dispute."},
@@ -269,11 +272,17 @@ class ProcessContractDispute(APIView):
             # TODO
             # money goes back to sender from out address
             transfer.status = "Cancelled"
+            contract_curr.completed = True
+            contract_curr.save()
+            transfer.save()
 
         else:
             # TODO
             # money goes to contra from out address
             transfer.status = "Completed"
+            contract_curr.completed = True
+            contract_curr.save()
+            transfer.save()
 
 
 class GetContractsAPIView(APIView):
